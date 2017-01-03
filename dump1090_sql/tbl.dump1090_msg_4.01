@@ -1,0 +1,48 @@
+/*
+  Script Name....: tbl.dump1090_msg_4.01
+
+  Purpose........: Creates the following table:
+
+                      dump1090_msg_4
+
+  Author.........: MA Whalley
+
+  Date written...: 03-May-2015
+
+  Amendment History
+  -----------------
+
+  1.0  03-May-2015 MAW  Script written to match DUMP1090 SBS-1 data
+
+  1.1  03-Jan-2017 MAW  Added dump1090_sitename, record_type, record_type_number
+
+
+  Sample Data: 111,11111,A88CF6,111111,2014-12-16,09:19:33.328,2014-12-16,09:19:33.303,569,107,-1472,0
+*/
+
+
+/*
+   Create table: dump1090_msg_4
+*/
+
+create table dump1090_kafka.dump1090_msg_4
+   (
+   dump1090_sitename    char(20)                       ,
+   record_type          char(3)                        ,
+   record_type_number   integer                        ,
+   sg_session_id        integer                        ,
+   sg_aircraft_id       integer                        ,
+   hex_ident            char(10)                       ,
+   sg_flight_id         integer                        ,
+   msg_gen_ts           timestamp                      ,
+   msg_log_ts           timestamp                      ,
+   ground_speed         decimal(8,2)                   ,
+   track                decimal(8,2)                   ,
+   vertical_rate        integer                        
+   )
+\p\g
+
+
+/*
+  End of Script
+*/

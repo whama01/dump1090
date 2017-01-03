@@ -1,0 +1,46 @@
+/*
+  Script Name....: tbl.vw_dump1090_log.00
+
+  Purpose........: Creates the following table:
+
+                      vw_dump1090_log
+
+  Author.........: MA Whalley
+
+  Date written...: 03-May-2015
+
+  Amendment History
+  -----------------
+
+  1.0  03-May-2015 MAW  Script written to 
+
+*/
+
+
+/*
+   Create table: vw_dump1090_log
+*/
+
+create view dump1090_kafka.vw_dump1090_log as
+
+select
+
+  processing_start_ts,
+  processing_end_ts,
+  processing_end_ts - processing_start_ts as process_time,
+  no_of_files,
+  dump1090_air +   dump1090_id + dump1090_sta +
+  dump1090_msg_1 + dump1090_msg_2 +
+  dump1090_msg_3 + dump1090_msg_4 +
+  dump1090_msg_5 + dump1090_msg_6 +
+  dump1090_msg_8  as no_of_rows_processed
+
+from
+     dump1090_kafka.dump1090_log
+
+\p\g
+
+
+/*
+  End of Script
+*/

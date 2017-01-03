@@ -1,0 +1,6 @@
+./dump1090_create_kafka_scheduler.sh
+./dump1090_create_kafka_cluster.sh
+./dump1090_create_kafka_source.sh
+./dump1090_create_kafka_target.sh
+./dump1090_create_kafka_load_spec.sh
+./dump1090_create_kafka_microbatch.sh
