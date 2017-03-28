@@ -24,7 +24,7 @@
    Create table: dump1090_air
 */
 
-create table dump1090_kafka.dump1090_air
+create table :h_schema.dump1090_air
    (
    dump1090_sitename    char(20)                       ,
    record_type          char(3)                        ,

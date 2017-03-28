@@ -1,9 +1,9 @@
 /*
-  Script Name....: tbl.dump1090_sta.01
+  Script Name....: tbl.dump1090_msg_7.01
 
   Purpose........: Creates the following table:
 
-                      dump1090_sta
+                      dump1090_msg_7
 
   Author.........: MA Whalley
 
@@ -16,16 +16,14 @@
 
   1.1  03-Jan-2017 MAW  Added dump1090_sitename, record_type, record_type_number
 
-
-  Sample Data: 333,6,4CAAD8,106,2014-12-29,14:19:22.774,2014-12-29,14:19:22.774,RM
 */
 
 
 /*
-   Create table: dump1090_sta
+   Create table: dump1090_msg_7
 */
 
-create table :h_schema.dump1090_sta
+create table :h_schema.dump1090_msg_7
    (
    dump1090_sitename    char(20)                       ,
    record_type          char(3)                        ,
@@ -36,7 +34,8 @@ create table :h_schema.dump1090_sta
    sg_flight_id         integer                        ,
    msg_gen_ts           timestamp                      ,
    msg_log_ts           timestamp                      ,
-   status_id            char(2)                        
+   altitude             integer                        ,
+   is_on_ground         integer                        
    )
 \p\g
 

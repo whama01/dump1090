@@ -1,0 +1,1400 @@
+#!/bin/bash
+#
+# Copyright 2014 Actian Corporation
+#
+# Program Ownership and Restrictions.
+#
+# This Program (Shell Script) provided hereunder is licensed, not sold, and all
+# intellectual property rights and title to the Program shall remain with Actian
+# and Our suppliers and no interest or ownership therein is conveyed to you.
+#
+# No right to create a copyrightable work, whether joint or unitary, is granted
+# or implied; this includes works that modify (even for purposes of error
+# correction), adapt, or translate the Program or create derivative works, 
+# compilations, or collective works therefrom, except as necessary to configure
+# the Program using the options and tools provided for such purposes and
+# contained in the Program. 
+#
+# The Program is supplied directly to you for use as defined by the controlling
+# documentation e.g. a Consulting Agreement and for no other reason.  
+#
+# You will treat the Program as confidential information and you will treat it
+# in the same manner as you would to protect your own confidential information,
+# but in no event with less than reasonable care.
+#
+# The Program shall not be disclosed to any third party (except solely to
+# employees, attorneys, and consultants, who need to know and are bound by a
+# written agreement with Actian to maintain the confidentiality of the Program
+# in a manner consistent with this licence or as defined in any other agreement)
+# or used except as permitted under this licence or by agreement between the
+# parties.
+#
+
+#----------------------------------------------------------------------------
+#
+# Name:
+#   dump1090_build_map
+#
+# Description:
+#   Builds a Google Map using their API for flight data extracted from
+#   the Ingres dump1090 database
+#
+# History:
+#   1.0 05-Sep-2015 (mark.whalley@actian.com)
+#       Created from a Post-It note definition
+#
+#
+#----------------------------------------------------------------------------
+h_prog_name=`basename ${0}`
+h_prog_version=v1.0
+#----------------------------------------------------------------------------
+#
+
+#----------------------------------------------------------------------------
+# Function:
+#   TERMINATE - Exit the program 
+#----------------------------------------------------------------------------
+TERMINATE()
+{
+
+   CLF_MESSAGELOG Function: TERMINATE
+
+   CLF_TIDYUP 1
+
+   exit 0
+
+#----------------------------------------------------------------------------
+# End of Function: TERMINATE
+#----------------------------------------------------------------------------
+}
+
+
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   INITIALIZE - set up local variables 
+#----------------------------------------------------------------------------
+INITIALIZE()
+{
+
+
+#----------------------------------------------------------------------------
+# Enviroment setup:
+#----------------------------------------------------------------------------
+
+
+CLF_SETUPCOMMONVARIABLES
+CLF_CREATELOGFILES
+CLF_SETUPPATHS $h_clv_ii_system
+#CLF_GETINGPRENV
+
+
+#----------------------------------------------------------------------------
+# Create any test-specific files
+#----------------------------------------------------------------------------
+
+   h_clf_flights=$h_clf_log_file_dir/$h_prog_name.flights.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_flights
+
+   h_clf_dump1090_flights_html_tmp=$h_clf_log_file_dir/$h_prog_name.dump1090_flights_html.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_dump1090_flights_html_tmp
+
+   h_clf_dump1090_flights_html=$h_clv_www_dir/dump1090_flights.html
+
+
+#----------------------------------------------------------------------------
+# What's the date and time (of starting this)
+#----------------------------------------------------------------------------
+   CLF_CURDATETIME
+   h_prog_start_datetime=$h_clf_cur_datetime
+   h_prog_end_datetime=""
+
+#----------------------------------------------------------------------------
+# End of Function: INITIALIZE
+#----------------------------------------------------------------------------
+}
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   CLF_SETUPCOMMONVARIABLES
+#      Setup variables used by most (if not all) DBM scripts
+#----------------------------------------------------------------------------
+function CLF_SETUPCOMMONVARIABLES
+{
+
+   h_clf_log_file_dir=/tmp
+# ----------------------------------------------------------------------------
+#       Determine whether running from a terminal (on-line)
+#       tty -s will return a result code of 0 if connected to a terminal,
+#       1 if not.
+#
+#       Note that most scripts will be triggered from Nagios and thus be 
+#       running "in batch" mode.  However some may also be run from the
+#       command line.
+# ----------------------------------------------------------------------------
+   tty -s
+
+   if [ $? = 0 ]
+   then
+           h_clf_online="Y"
+   else
+           h_clf_online="N"
+   fi
+
+
+# ----------------------------------------------------------------------------
+# Pickup the hostname
+# ----------------------------------------------------------------------------
+   h_clf_hostname=`hostname`
+
+# ----------------------------------------------------------------------------
+# PID of current process used amongst other things for naming temporary files
+# ----------------------------------------------------------------------------
+   h_clf_pid=$$
+   export h_clf_pid
+
+
+# ----------------------------------------------------------------------------
+# To ensure consistency when writing out data files, set II_DATE_FORMAT to
+# multinational4
+# ----------------------------------------------------------------------------
+   export II_DATE_FORMAT=MULTINATIONAL4
+
+
+   return 0
+
+
+#----------------------------------------------------------------------------
+# End of Function: CLF_SETUPCOMMONVARIABLES
+#----------------------------------------------------------------------------
+}
+
+
+
+function CLF_CREATEFILE
+{
+# ----------------------------------------------------------------------------
+#       function CLF_CREATEFILE
+#
+#               Filename (and dir) passed as parameter
+#               If file exists, remove it
+#               Touch the file
+# ----------------------------------------------------------------------------
+   h_clf_create_filename=$1
+
+   if [ -f "$h_clf_create_filename" ]
+   then
+      rm $h_clf_create_filename 2> /dev/null
+
+      CLF_CHECKCMD $? "Y" "attempting to remove $h_clf_create_filename"
+   fi
+
+   touch $h_clf_create_filename
+
+   CLF_CHECKCMD $? "Y" "attempting to touch $h_clf_create_filename"
+
+   chmod 777 $h_clf_create_filename
+
+   CLF_CHECKCMD $? "Y" "attempting to chmod $h_clf_create_filename"
+
+   return 0
+}
+# -----------------------------------------------------------------------------
+#       End of Function: CLF_CREATEFILE
+# -----------------------------------------------------------------------------
+
+
+function CLF_CHECKCMD
+{
+# ----------------------------------------------------------------------------
+#       function CLF_CHECKCMD
+#               First parameter passed is the return code of the last command
+#               executed.
+#               Second parameter:
+#                  Y: Indicates an error is deemed as critical
+#                  N: Any errors are reported, but not as critical
+#               Remaining parameters give a brief description of what the
+#               command was doing.
+# ----------------------------------------------------------------------------
+   h_clf_return_code=$1
+   shift
+
+   h_clf_critical=$1
+   shift
+
+   h_clf_command=$*
+
+   if [ "$h_clf_return_code" != 0 ]
+   then
+      CLF_MESSAGELOG "++ Failed to run command ++"
+      CLF_MESSAGELOG $h_clf_command
+
+      if [ "$h_clf_critical" = "Y" ]
+      then
+         printf "%s\n" "Failed to run command: $h_clf_command"
+         exit $h_clf_nagios_state_critical
+      fi
+   fi
+
+
+   return 0
+}
+# -----------------------------------------------------------------------------
+#       End of Function: CLF_CHECKCMD
+# -----------------------------------------------------------------------------
+
+
+
+
+function CLF_MESSAGELOG
+{
+
+# ----------------------------------------------------------------------------
+#   Assign whatever has been passed as parameters to the h_clf_message
+#   variable.
+# ----------------------------------------------------------------------------
+   h_clf_message=$*
+
+# ----------------------------------------------------------------------------
+#   As some lines (e.g. o/p from SQL) may contain a ^M, zap them
+# ----------------------------------------------------------------------------
+   h_clf_tmp_message=`echo $h_clf_message | sed -e "s///"`
+   h_clf_message=$h_clf_tmp_message
+
+
+# ----------------------------------------------------------------------------
+#   Whatever 'message' has been passed as a parameter, write it to
+#   the log file 
+# ----------------------------------------------------------------------------
+
+   echo `date +"%d/%m/%Y %H:%M:%S"` "$h_clf_message" >> $h_clf_message_log
+
+   return 0
+}
+# ----------------------------------------------------------------------------
+# End of Function: CLF_MESSAGELOG
+# ----------------------------------------------------------------------------
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   CLF_GETINGRESDATETIME - Get the current time from Ingres
+#                   Adding the number of minutes (passed as a parameter)
+#----------------------------------------------------------------------------
+function CLF_GETINGRESDATETIME
+{
+
+#----------------------------------------------------------------------------
+# If no parameter is passed, presume nothing to be added to the current
+# time
+#----------------------------------------------------------------------------
+   if [ -z "$1" ]
+   then
+      h_clf_add_minutes=0
+   else
+      h_clf_add_minutes=$1
+   fi
+
+
+   echo "select date('now') + '$h_clf_add_minutes minutes' as date_time ;" > $h_clf_sql_script
+
+   h_clf_date_time=`sql iidbdb < $h_clf_sql_script | grep -v date_time | grep ^\| | sed -e "s/|//g"`
+
+   if [ ! "$h_clf_date_time" ]
+   then
+      printf "%s\n" "CRITICAL - unable to determine the date and time"
+
+      exit $h_clf_nagios_state_critical
+   fi
+
+#----------------------------------------------------------------------------
+# OK, all done
+#----------------------------------------------------------------------------
+   return 0
+
+#----------------------------------------------------------------------------
+# End of Function: CLF_GETINGRESDATETIME
+#----------------------------------------------------------------------------
+}
+
+
+function CLF_CURDATETIME
+{
+
+# ----------------------------------------------------------------------------
+#   Get the current system date / time
+# ----------------------------------------------------------------------------
+   h_clf_cur_date=`date +"%d/%m/%Y"`
+   h_clf_cur_time=`date +"%H:%M:%S"`
+   h_clf_cur_yyyy=`date +"%Y"`
+
+   h_clf_cur_moy=`date +"%m"`
+   h_clf_cur_dom=`date +"%d"`
+   h_clf_cur_yy=`date +"%y"`
+   h_clf_cur_abbrev_month=`date +"%b"`
+   h_clf_cur_full_month=`date +"%B"`
+   h_clf_cur_abbrev_dow=`date +"%a"`
+   h_clf_cur_full_dow=`date +"%A"`
+
+   h_clf_cur_yyyymmddhhmmss=`date +"%Y%m%d%H%M%S"`
+
+   h_clf_cur_datetime=`date +"%d/%m/%Y %H:%M:%S"`
+
+   return 0
+
+}
+# ----------------------------------------------------------------------------
+# End of Function: CLF_CURDATETIME
+# ----------------------------------------------------------------------------
+
+
+
+
+function CLF_CREATELOGFILES
+{
+# ------------------------------------------------------------------------------
+#   h_clf_log_file_dir: Location of temporary (TMP), log (LOG) and data (DAT)
+#   files.
+#
+#   If this does not exist, try and create it.
+# ------------------------------------------------------------------------------
+
+   if [ ! -d "$h_clf_log_file_dir" ]
+   then
+
+      mkdir -p $h_clf_log_file_dir
+
+# ------------------------------------------------------------------------------
+# If we are unable to create the temporary directory, no point in trying to call 
+# CLF_MESSAGELOG as unable to write to it.
+# ------------------------------------------------------------------------------
+      if [ $? -ne 0 ]
+      then
+         printf "%s\n" "Unable to create temporary directory: $h_clf_log_file_dir"
+         exit $h_clf_nagios_state_critical
+      fi
+
+   fi
+
+# ------------------------------------------------------------------------------
+# h_clf_message_log
+#    Used to keep a log of messages for this script.
+#
+#    If it already exists (should really as PID is included in name), append
+#    to it.
+#
+#    Otherwise, try to create it.
+# ------------------------------------------------------------------------------
+   h_clf_message_log=$h_clf_log_file_dir/$h_prog_name.LOG.$h_clf_pid
+
+   if [ -f $h_clf_message_log ]
+   then
+      printf "%s\n" "" >> $h_clf_message_log
+      printf "%s\n" "------------------------------------------------" >> $h_clf_message_log
+      printf "%s\n" "" >> $h_clf_message_log
+   else
+      CLF_CREATEFILE $h_clf_message_log
+   fi
+
+
+# ------------------------------------------------------------------------------
+# h_clf_sql_script
+#   Used to hold an SQL script as it is built up ready to run against a 
+#   database
+# ------------------------------------------------------------------------------
+   h_clf_sql_script=$h_clf_log_file_dir/$h_prog_name.sql_script.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sql_script
+
+# ------------------------------------------------------------------------------
+# h_clf_sql_log
+#    Used to hold the standard output from running an SQL script against a
+#    database.  Note that the SQL script may itself "copy" data into additional
+#    files.  These files will be defined within the main program, as these are
+#    typically unique to that program.
+#
+#    Although used for other purposes, the primary use of the h_clf_sql_log
+#    file to to check for SQL errors being returned.
+# ------------------------------------------------------------------------------
+   h_clf_sql_log=$h_clf_log_file_dir/$h_prog_name.sql_log.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sql_log
+
+# ------------------------------------------------------------------------------
+# h_clf_sql_log_history
+#    Each h_clf_sql_log is appended to a h_clf_sql_log_history for this
+#    running of the main application.  This is useful when debugging as
+#    a complete history of the SQL that has been run can be examined.
+# ------------------------------------------------------------------------------
+   h_clf_sql_log_history=$h_clf_log_file_dir/$h_prog_name.sql_log_history.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sql_log_history
+
+
+# ------------------------------------------------------------------------------
+# h_clf_sh_script
+#    Temporary file to hold shell commands for running independently of
+#    mainscript.
+# ------------------------------------------------------------------------------
+   h_clf_sh_script=$h_clf_log_file_dir/$h_prog_name.sh_clf_script.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sh_script
+
+   chmod 777 $h_clf_sh_script
+
+
+# ------------------------------------------------------------------------------
+# h_clf_sh_log
+#    Although most shell/operating system commands will be initiated and
+#    their results / return status examined within the main program, the
+#    h_clf_sh_log is used when the results need to be held within a file
+#    for further processing.
+# ------------------------------------------------------------------------------
+   h_clf_sh_log=$h_clf_log_file_dir/$h_prog_name.sh_clf_log.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sh_log
+
+
+# ------------------------------------------------------------------------------
+# h_clf_sh_err_log
+#    To assist with debugging, this file will capture error output from 
+#    running commands.
+# ------------------------------------------------------------------------------
+   h_clf_sh_err_log=$h_clf_log_file_dir/$h_prog_name.sh_clf_err_log.TMP.$h_clf_pid
+   CLF_CREATEFILE $h_clf_sh_err_log
+
+
+   return 0
+}
+# -----------------------------------------------------------------------------
+#       End of Function: CLF_CREATELOGFILES
+# -----------------------------------------------------------------------------
+
+
+
+
+
+function CLF_TIDYUP
+{
+# ------------------------------------------------------------------------------
+# Function: CLF_TIDYUP
+#    Removes all temporary files that were created by this program with a 
+#    .TMP. PID extension.
+#
+#    Removes all log files that were created by this program with a 
+#    .LOG. extension. after a pre-defined number of days (passed as
+#    a parameter.
+#
+#    Removes all temporary files that were created by this program with a 
+#    .TMP. PID extension that have been sitting around for a pre-defined
+#    number of days (typically left around due to a previous failed run).
+#
+#    Any ".DAT" (data files) will be retained (and overwritten) by subsequent
+#    runs of the same check script.
+#
+# ------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# Just in case this function is called WITHOUT some of the required variables
+# having been set (such as the filename stem, PID etc), then do not continue
+# to run this functions as doing so could remove files that should not be!!!!
+# ------------------------------------------------------------------------------
+#  if [ -z "$h_prog_name" -o -z "$h_clf_pid" -o -z "$h_clf_nagios_state_warning" ]
+
+   if [ -z "$h_prog_name" -o -z "$h_clf_pid" ]
+   then
+      return 0
+   fi
+
+
+# ------------------------------------------------------------------------------
+# Non "temporary" files (e.g. log files) can be retained for a number of days
+# as defined by the supplied parameter.
+# ------------------------------------------------------------------------------
+   if [ $# != 1 ]
+   then
+      printf "%s" "Usage: $0 [No of days to keep log files]"
+      exit $h_clf_nagios_state_warning
+   fi
+
+   h_clf_no_of_days=$1
+
+
+
+#echo $h_clf_log_file_dir
+#echo $h_prog_name
+#echo $h_clf_pid
+#echo $h_clf_no_of_days
+
+# ------------------------------------------------------------------------------
+# Find and remove all TMP and LOG files created from this run...
+# ------------------------------------------------------------------------------
+   rm $h_clf_log_file_dir/$h_prog_name*.TMP.$h_clf_pid 2>/dev/null
+   rm $h_clf_log_file_dir/$h_prog_name*.LOG.$h_clf_pid 2>/dev/null
+
+
+
+   return 0
+}
+# -----------------------------------------------------------------------------
+#       End of Function: CLF_TIDYUP
+# -----------------------------------------------------------------------------
+
+
+
+function CLF_SETUPPATHS
+{
+
+   return 0
+}
+# -----------------------------------------------------------------------------
+#       End of Function: CLF_SETUPPATHS
+# -----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   PLOT_LATEST_POSITIONS
+#----------------------------------------------------------------------------
+PLOT_LATEST_POSITIONS()
+{
+
+   CLF_MESSAGELOG Function: PLOT_LATEST_POSITIONS
+
+
+   echo " 
+          create local temporary table if not exists dump1090_msg_1 on commit preserve rows as
+          select distinct 
+             msg_1.hex_ident           as hex_ident,
+             max(msg_1.msg_gen_ts)     as msg_gen_ts,
+             max(msg_1.call_sign)      as call_sign
+          from
+             ${h_clv_schema}.dump1090_msg_1 msg_1
+          where
+             msg_1.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists dump1090_msg_3 on commit preserve rows as
+          select distinct 
+             msg_3.hex_ident           as hex_ident,
+             max(msg_3.msg_gen_ts)     as msg_gen_ts,
+             max(msg_3.altitude)       as altitude,
+             max(msg_3.latitude)       as latitude,
+             max(msg_3.longitude)      as longitude
+          from
+             ${h_clv_schema}.dump1090_msg_3 msg_3
+          where
+             msg_3.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists dump1090_msg_4 on commit preserve rows as
+          select distinct 
+             msg_4.hex_ident           as hex_ident,
+             max(msg_4.msg_gen_ts)     as msg_gen_ts,
+             max(msg_4.track)          as track
+          from
+             ${h_clv_schema}.dump1090_msg_4 msg_4
+          where
+             msg_4.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists flights
+          (
+             hex_ident                char(10) not null,
+             msg_gen_ts               timestamp not null,
+             altitude                 integer not null,
+             latitude                 decimal(8,5) not null,
+             longitude                decimal(8,5) not null,
+             track                    integer not null,
+             call_sign                char(10) not null
+          )
+             on commit preserve rows
+          ;
+
+          insert into v_temp_schema.flights
+             (
+                  hex_ident,
+                  msg_gen_ts,
+                  altitude,
+                  latitude,
+                  longitude,
+                  track,
+                  call_sign
+             )
+            select
+                 msg_3.hex_ident,
+                 max(msg_3.msg_gen_ts),
+                 0,
+                 0,
+                 0,
+                 0,
+                 ''
+               from
+                 v_temp_schema.dump1090_msg_3 msg_3
+               group by
+                 1, 3, 4, 5, 6
+          ;
+
+          update v_temp_schema.flights sf
+          set
+             altitude         = msg_3.altitude,
+             latitude         = msg_3.latitude,
+             longitude        = msg_3.longitude
+          from
+             v_temp_schema.dump1090_msg_3 msg_3
+          where
+             sf.hex_ident        = msg_3.hex_ident    and
+             sf.msg_gen_ts       =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_3 t
+               where
+                  msg_3.hex_ident = t.hex_ident
+            )
+          ;
+
+
+          update v_temp_schema.flights sf
+          set
+             track            = msg_4.track
+          from
+             v_temp_schema.dump1090_msg_4 msg_4
+          where
+             sf.hex_ident       = msg_4.hex_ident    and
+             msg_4.msg_gen_ts    =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_4 t
+               where
+                  msg_4.hex_ident = t.hex_ident
+            )
+          ;
+          
+          update v_temp_schema.flights sf
+          set
+             call_sign = msg_1.call_sign
+          from
+             v_temp_schema.dump1090_msg_1 msg_1
+          where
+             sf.hex_ident = msg_1.hex_ident    and
+             msg_1.msg_gen_ts =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_1 t
+               where
+                  msg_1.hex_ident = t.hex_ident
+            )
+          ;
+
+          select
+                  'DUMP1090',
+                  hex_ident,
+                  msg_gen_ts,
+                  altitude,
+                  latitude,
+                  longitude,
+                  track,
+                  call_sign
+          from
+                  v_temp_schema.flights order by 1;
+         
+           " > $h_clf_sql_script
+
+   vsql -tqf $h_clf_sql_script -o $h_clf_sql_log  2>&1
+
+# DUMP1090 | 4CA5DA     | 2016-07-11 10:09:11.014 |    31000 | 51.50055 |  -1.89143 |   106 |
+# DUMP1090 | 4008F1     | 2016-07-11 10:17:59.291 |    32025 | 51.98470 |  -2.87775 |   284 | BAW68WG
+# DUMP1090 | A9C151     | 2016-07-11 10:17:59.935 |    29075 | 51.91553 |  -2.64664 |   306 | AAL51
+# DUMP1090 | 40608F     | 2016-07-11 10:17:58.048 |    34000 | 51.89227 |  -2.70405 |   282 | BAW1
+
+   cat ${h_clf_sql_log} | grep DUMP1090 | sed -e "s/|//g"  | sed -e "s/DUMP1090//" > ${h_clf_flights}
+
+
+# cat ${h_clf_flights}
+
+echo " <!DOCTYPE html>
+<html>
+  <head>
+    <style type=\"text/css\">
+      html, body { height: 100%; margin: 0; padding: 0; }
+      #map { height: 100%; }
+    </style>
+    <meta http-equiv="refresh" content="10" >
+  </head>
+  <body>
+    <div id=\"map\"></div>
+    <script type=\"text/javascript\">
+
+
+var map;
+function initMap() {
+
+  var myHomeLatLng = {lat: 51.576, lng: -4.0872};
+
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: myHomeLatLng,
+    zoom: 7,
+    panControl: true,
+    zoomControl: true,
+        zoomControlOptions: {
+        style: google.maps.ZoomControlStyle.LARGE,
+        position: google.maps.ControlPosition.RIGHT_CENTER
+    },
+
+    scaleControl: true,
+    mapTypeControl: true,
+    streetViewControl: true,
+    overviewMapControl: true,
+        mapTypeControl: true,
+    mapTypeControlOptions: {
+      style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+      mapTypeIds: [
+        google.maps.MapTypeId.ROADMAP,
+        google.maps.MapTypeId.TERRAIN
+      ]
+    }
+  });
+
+    var planeImage_000_045 = 'black_plane_000_045.gif';
+    var planeImage_045_090 = 'black_plane_045_090.gif';
+    var planeImage_090_135 = 'black_plane_090_135.gif';
+    var planeImage_135_180 = 'black_plane_135_180.gif';
+    var planeImage_180_225 = 'black_plane_180_225.gif';
+    var planeImage_225_270 = 'black_plane_225_270.gif';
+    var planeImage_270_315 = 'black_plane_270_315.gif';
+    var planeImage_315_360 = 'black_plane_315_360.gif';
+
+   " > $h_clf_dump1090_flights_html_tmp
+
+
+   h_noof_aircraft=0
+
+   CLF_MESSAGELOG ""
+   CLF_MESSAGELOG "Reporting flight details"
+
+# 4CA5DA      2016-07-11 10:09:11.014     31000  51.50055   -1.89143    106 
+# 4008F1      2016-07-11 10:17:59.291     32025  51.98470   -2.87775    284  BAW68WG
+# A9C151      2016-07-11 10:17:59.935     29075  51.91553   -2.64664    306  AAL51
+# 40608F      2016-07-11 10:17:58.048     34000  51.89227   -2.70405    282  BAW1
+
+
+   while read h_hex_ident h_date_msg_gen h_time_msg_gen h_altitude h_latitude h_longitude h_track h_call_sign
+   do
+
+      (( h_noof_aircraft += 1 ))
+
+
+      if   ((0<=h_track && h_track<=44))
+      then
+         h_aircraft="planeImage_000_045"
+      elif ((45<=h_track && h_track<=89))
+      then
+         h_aircraft="planeImage_045_090"
+      elif ((90<=h_track && h_track<=134))
+      then
+         h_aircraft="planeImage_090_135"
+      elif ((135<=h_track && h_track<=179))
+      then
+         h_aircraft="planeImage_135_180"
+      elif ((180<=h_track && h_track<=224))
+      then
+         h_aircraft="planeImage_180_225"
+      elif ((225<=h_track && h_track<=269))
+      then
+         h_aircraft="planeImage_225_270"
+      elif ((270<=h_track && h_track<=314))
+      then
+         h_aircraft="planeImage_270_315"
+      elif ((315<=h_track && h_track<=360))
+      then
+         h_aircraft="planeImage_315_360"
+      fi
+
+
+#      printf "%s\n" "Plane No: $h_noof_aircraft $h_hex_ident $h_date_msg_gen $h_time_msg_gen $h_altitude $h_latitude $h_longitude $h_call_sign"
+
+      echo "var plane$h_noof_aircraft = new google.maps.Marker({
+        position: {lat: $h_latitude, lng: $h_longitude},
+        map: map,
+        title: '$h_call_sign - Alt: $h_altitude Lat: $h_latitude Long: $h_longitude Dt: $h_date_msg_gen Tm: $h_time_msg_gen HexId: $h_hex_ident', 
+        icon: $h_aircraft
+        });" >> $h_clf_dump1090_flights_html_tmp
+
+
+
+
+   done < $h_clf_flights
+
+echo " }
+
+    </script>
+    <script async defer
+      src=\"https://maps.googleapis.com/maps/api/js?key=AIzaSyCJTD13dC-QnkV27ix01KQJy-KVQWN0EU8&region=GB&callback=initMap\">
+    </script>
+  </body>
+</html> " >> $h_clf_dump1090_flights_html_tmp
+
+
+
+   mv $h_clf_dump1090_flights_html_tmp $h_clf_dump1090_flights_html
+
+
+   return 0
+
+#----------------------------------------------------------------------------
+# End of Function: PLOT_LATEST_POSITIONS
+#----------------------------------------------------------------------------
+}
+
+
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   PLOT_FLIGHT
+#----------------------------------------------------------------------------
+PLOT_FLIGHT()
+{
+
+   CLF_MESSAGELOG Function: PLOT_FLIGHT
+
+
+   echo " 
+          create local temporary table if not exists dump1090_msg_1 on commit preserve rows as
+          select distinct 
+             msg_1.hex_ident           as hex_ident,
+             msg_1.msg_gen_ts          as msg_gen_ts
+          from
+             ${h_clv_schema}.dump1090_msg_1 msg_1
+          where
+             msg_1.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time' and
+             msg_1.call_sign = '$h_clv_call_sign'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists dump1090_msg_3 on commit preserve rows as
+          select distinct 
+             msg_3.hex_ident           as hex_ident,
+             max(msg_3.msg_gen_ts)     as msg_gen_ts,
+             max(msg_3.altitude)       as altitude,
+             max(msg_3.latitude)       as latitude,
+             max(msg_3.longitude)      as longitude
+          from
+             ${h_clv_schema}.dump1090_msg_3 msg_3
+          where
+             msg_3.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists dump1090_msg_4 on commit preserve rows as
+          select distinct 
+             msg_4.hex_ident           as hex_ident,
+             max(msg_4.msg_gen_ts)     as msg_gen_ts,
+             max(msg_4.track)          as track
+          from
+             ${h_clv_schema}.dump1090_msg_4 msg_4
+          where
+             msg_4.msg_gen_ts between '$h_clv_start_time' and '$h_clv_end_time'
+          group by
+             hex_ident
+          ;
+
+          create local temporary table if not exists flights
+          (
+             hex_ident                char(10) not null,
+             msg_gen_ts               timestamp not null,
+             altitude                 integer not null,
+             latitude                 decimal(8,5) not null,
+             longitude                decimal(8,5) not null,
+             track                    integer not null,
+             call_sign                char(10) not null
+          )
+             on commit preserve rows
+          ;
+
+          insert into v_temp_schema.flights
+             (
+                  hex_ident,
+                  msg_gen_ts,
+                  altitude,
+                  latitude,
+                  longitude,
+                  track,
+                  call_sign
+             )
+            select
+                 msg_3.hex_ident,
+                 max(msg_3.msg_gen_ts),
+                 0,
+                 0,
+                 0,
+                 0,
+                 ''
+               from
+                 v_temp_schema.dump1090_msg_3 msg_3
+               group by
+                 1, 3, 4, 5, 6
+          ;
+
+          update v_temp_schema.flights sf
+          set
+             altitude         = msg_3.altitude,
+             latitude         = msg_3.latitude,
+             longitude        = msg_3.longitude
+          from
+             v_temp_schema.dump1090_msg_3 msg_3
+          where
+             sf.hex_ident        = msg_3.hex_ident    and
+             sf.msg_gen_ts       =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_3 t
+               where
+                  msg_3.hex_ident = t.hex_ident
+            )
+          ;
+
+
+          update v_temp_schema.flights sf
+          set
+             track            = msg_4.track
+          from
+             v_temp_schema.dump1090_msg_4 msg_4
+          where
+             sf.hex_ident       = msg_4.hex_ident    and
+             msg_4.msg_gen_ts    =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_4 t
+               where
+                  msg_4.hex_ident = t.hex_ident
+            )
+          ;
+          
+          update v_temp_schema.flights sf
+          set
+             call_sign = msg_1.call_sign
+          from
+             v_temp_schema.dump1090_msg_1 msg_1
+          where
+             sf.hex_ident = msg_1.hex_ident    and
+             msg_1.msg_gen_ts =
+            (
+               select
+                  max(t.msg_gen_ts)
+               from
+                  v_temp_schema.dump1090_msg_1 t
+               where
+                  msg_1.hex_ident = t.hex_ident
+            )
+          ;
+
+          select
+                  'DUMP1090',
+                  hex_ident,
+                  msg_gen_ts,
+                  altitude,
+                  latitude,
+                  longitude,
+                  track,
+                  call_sign
+          from
+                  v_temp_schema.flights order by 1;
+         
+           " > $h_clf_sql_script
+
+   vsql -tqf $h_clf_sql_script -o $h_clf_sql_log  2>&1
+
+# DUMP1090 | 4CA5DA     | 2016-07-11 10:09:11.014 |    31000 | 51.50055 |  -1.89143 |   106 |
+# DUMP1090 | 4008F1     | 2016-07-11 10:17:59.291 |    32025 | 51.98470 |  -2.87775 |   284 | BAW68WG
+# DUMP1090 | A9C151     | 2016-07-11 10:17:59.935 |    29075 | 51.91553 |  -2.64664 |   306 | AAL51
+# DUMP1090 | 40608F     | 2016-07-11 10:17:58.048 |    34000 | 51.89227 |  -2.70405 |   282 | BAW1
+
+   cat ${h_clf_sql_log} | grep DUMP1090 | sed -e "s/|//g"  | sed -e "s/DUMP1090//" > ${h_clf_flights}
+
+
+# cat ${h_clf_flights}
+
+echo " <!DOCTYPE html>
+<html>
+  <head>
+    <style type=\"text/css\">
+      html, body { height: 100%; margin: 0; padding: 0; }
+      #map { height: 100%; }
+    </style>
+    <meta http-equiv="refresh" content="10" >
+  </head>
+  <body>
+    <div id=\"map\"></div>
+    <script type=\"text/javascript\">
+
+
+var map;
+function initMap() {
+
+  var myHomeLatLng = {lat: 51.576, lng: -4.0872};
+
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: myHomeLatLng,
+    zoom: 7,
+    panControl: true,
+    zoomControl: true,
+        zoomControlOptions: {
+        style: google.maps.ZoomControlStyle.LARGE,
+        position: google.maps.ControlPosition.RIGHT_CENTER
+    },
+
+    scaleControl: true,
+    mapTypeControl: true,
+    streetViewControl: true,
+    overviewMapControl: true,
+        mapTypeControl: true,
+    mapTypeControlOptions: {
+      style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+      mapTypeIds: [
+        google.maps.MapTypeId.ROADMAP,
+        google.maps.MapTypeId.TERRAIN
+      ]
+    }
+  });
+
+    var planeImage_000_045 = 'black_plane_000_045.gif';
+    var planeImage_045_090 = 'black_plane_045_090.gif';
+    var planeImage_090_135 = 'black_plane_090_135.gif';
+    var planeImage_135_180 = 'black_plane_135_180.gif';
+    var planeImage_180_225 = 'black_plane_180_225.gif';
+    var planeImage_225_270 = 'black_plane_225_270.gif';
+    var planeImage_270_315 = 'black_plane_270_315.gif';
+    var planeImage_315_360 = 'black_plane_315_360.gif';
+
+   " > $h_clf_dump1090_flights_html_tmp
+
+
+   h_noof_aircraft=0
+
+   CLF_MESSAGELOG ""
+   CLF_MESSAGELOG "Reporting flight details"
+
+# 4CA5DA      2016-07-11 10:09:11.014     31000  51.50055   -1.89143    106 
+# 4008F1      2016-07-11 10:17:59.291     32025  51.98470   -2.87775    284  BAW68WG
+# A9C151      2016-07-11 10:17:59.935     29075  51.91553   -2.64664    306  AAL51
+# 40608F      2016-07-11 10:17:58.048     34000  51.89227   -2.70405    282  BAW1
+
+
+   while read h_hex_ident h_date_msg_gen h_time_msg_gen h_altitude h_latitude h_longitude h_track h_call_sign
+   do
+
+      (( h_noof_aircraft += 1 ))
+
+
+      if   ((0<=h_track && h_track<=44))
+      then
+         h_aircraft="planeImage_000_045"
+      elif ((45<=h_track && h_track<=89))
+      then
+         h_aircraft="planeImage_045_090"
+      elif ((90<=h_track && h_track<=134))
+      then
+         h_aircraft="planeImage_090_135"
+      elif ((135<=h_track && h_track<=179))
+      then
+         h_aircraft="planeImage_135_180"
+      elif ((180<=h_track && h_track<=224))
+      then
+         h_aircraft="planeImage_180_225"
+      elif ((225<=h_track && h_track<=269))
+      then
+         h_aircraft="planeImage_225_270"
+      elif ((270<=h_track && h_track<=314))
+      then
+         h_aircraft="planeImage_270_315"
+      elif ((315<=h_track && h_track<=360))
+      then
+         h_aircraft="planeImage_315_360"
+      fi
+
+
+#      printf "%s\n" "Plane No: $h_noof_aircraft $h_hex_ident $h_date_msg_gen $h_time_msg_gen $h_altitude $h_latitude $h_longitude $h_call_sign"
+
+      echo "var plane$h_noof_aircraft = new google.maps.Marker({
+        position: {lat: $h_latitude, lng: $h_longitude},
+        map: map,
+        title: '$h_call_sign - Alt: $h_altitude Lat: $h_latitude Long: $h_longitude Dt: $h_date_msg_gen Tm: $h_time_msg_gen HexId: $h_hex_ident', 
+        icon: $h_aircraft
+        });" >> $h_clf_dump1090_flights_html_tmp
+
+
+
+
+   done < $h_clf_flights
+
+echo " }
+
+    </script>
+    <script async defer
+      src=\"https://maps.googleapis.com/maps/api/js?key=AIzaSyCJTD13dC-QnkV27ix01KQJy-KVQWN0EU8&region=GB&callback=initMap\">
+    </script>
+  </body>
+</html> " >> $h_clf_dump1090_flights_html_tmp
+
+
+
+   mv $h_clf_dump1090_flights_html_tmp $h_clf_dump1090_flights_html
+
+
+   return 0
+
+#----------------------------------------------------------------------------
+# End of Function: PLOT_FLIGHT
+#----------------------------------------------------------------------------
+}
+
+
+
+
+
+
+
+
+
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+#
+# END OF TESTS
+#
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+
+
+
+
+#----------------------------------------------------------------------------
+# Function:
+#   print_usage - print out the usage and exit
+#----------------------------------------------------------------------------
+PRINT_USAGE()
+{
+    printf "%s\n" "Usage:"
+    printf "%s\n" "  $h_prog_name"
+
+    printf "%s\n" "   --schema       {schema name}"
+    printf "%s\n" "   --test"
+
+    printf "%s\n" "      1 - Plot latest positions"
+    printf "%s\n" "      2 - Plot a single flight"
+
+    printf "%s\n" "   --start_time   {start time - dd-Mon-YYYY HH:MM:SS}"
+    printf "%s\n" "   --end_time     {end time - dd-Mon-YYYY HH:MM:SS}"
+    printf "%s\n" ""
+    printf "%s\n" "  $h_prog_name --help"
+    printf "%s\n" "  $h_prog_name --version"
+
+#----------------------------------------------------------------------------
+# End of Function: PRINT_USAGE
+#----------------------------------------------------------------------------
+}
+
+#----------------------------------------------------------------------------
+# Function:
+#   PRINT_HELP - print out the help and exit
+#----------------------------------------------------------------------------
+PRINT_HELP()
+{
+    PRINT_REVISION $h_prog_name $h_prog_version
+    printf "%s\n" ""
+    PRINT_USAGE
+    printf "%s\n" ""
+    printf "%s\n" "DUMP1090 - It really came from a Raspberry Pi and Vertica!"
+    printf "%s\n" ""
+
+#----------------------------------------------------------------------------
+# End of Function: PRINT_HELP
+#----------------------------------------------------------------------------
+}
+
+#----------------------------------------------------------------------------
+# Function:
+#   PRINT_REVISION - print out the programs revision number
+#----------------------------------------------------------------------------
+PRINT_REVISION()
+{
+    printf "%s\n" "Program Name...: $1"
+    printf "%s\n" "Revision.......: $2"
+    printf "%s\n" ""
+
+#----------------------------------------------------------------------------
+# End of Function: PRINT_HELP
+#----------------------------------------------------------------------------
+}
+
+#----------------------------------------------------------------------------
+# main program
+#----------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+# Process Command Line Variables (clv)
+#----------------------------------------------------------------------------
+
+while [ -n "$1" ]
+do
+   case "$1" in
+
+   --schema)
+      h_clv_schema=$2
+      shift
+      ;;
+
+   --test)
+      h_clv_test=$2
+      shift
+      ;;
+
+   --start_time)
+      h_clv_start_time=$2
+      shift
+      ;;
+
+   --end_time)
+      h_clv_end_time=$2
+      shift
+      ;;
+
+   --www_dir)
+      h_clv_www_dir=$2
+      shift
+      ;;
+
+
+    -h|--help)
+       PRINT_HELP
+       exit 0
+       ;;
+ 
+    -V|--version)
+       PRINT_REVISION $h_prog_name $h_prog_version
+       exit 0
+       ;;
+
+    *)
+       printf "%s\n" "Invalid parameter: $1"
+       PRINT_USAGE
+       exit 1
+       ;;
+
+   esac
+
+   shift
+
+done
+
+
+
+#----------------------------------------------------------------------------
+# Validate CLV
+#----------------------------------------------------------------------------
+
+   if [ -z "$h_clv_schema" ]
+   then
+      printf "%s\n" "Database schema name not supplied"
+      PRINT_USAGE
+      exit 1
+   fi
+
+
+   if [ -z "$h_clv_start_time" ]
+   then
+      printf "%s\n" "Start time not supplied"
+      PRINT_USAGE
+      exit 1
+   fi
+
+
+   if [ -z "$h_clv_end_time" ]
+   then
+      printf "%s\n" "End time not supplied"
+      PRINT_USAGE
+      exit 1
+   fi
+
+
+   if [ -z "$h_clv_www_dir" ]
+   then
+      printf "%s\n" "WWW directory name not supplied"
+      PRINT_USAGE
+      exit 1
+   fi
+
+
+
+#----------------------------------------------------------------------------
+# N/A
+#----------------------------------------------------------------------------
+
+
+#----------------------------------------------------------------------------
+# OK, lets do stuff
+#----------------------------------------------------------------------------
+
+
+INITIALIZE
+
+CLF_MESSAGELOG Program Name: $h_prog_name
+CLF_MESSAGELOG
+
+CLF_CURDATETIME
+CLF_MESSAGELOG starting at $h_clf_cur_datetime
+
+
+case $h_clv_test in
+
+  1)  
+      PLOT_LATEST_POSITIONS
+      h_return_status=$?
+      ;;
+
+  2)  
+      PLOT_FLIGHT
+      h_return_status=$?
+      ;;
+
+
+esac
+
+
+TERMINATE $h_return_status
+
+
+#----------------------------------------------------------------------------
+# End of script
+#---------------------------------------------------------------------------
+

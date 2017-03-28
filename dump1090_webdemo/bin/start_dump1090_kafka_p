@@ -1,0 +1,15 @@
+h_i=0
+
+while true
+do
+
+  h_date=`date`
+
+  (( h_i += 1 ))
+
+  echo $h_date " Starting nc instance number:" $h_i
+
+  nc pennardpi01.etowns.org 30003 | kafkacat -P -b vortex01:6667 -t adsb_dump1090 -p 0
+
+done
+

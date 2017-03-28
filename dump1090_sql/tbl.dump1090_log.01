@@ -27,7 +27,7 @@
    Create table: dump1090_log
 */
 
-create table dump1090_kafka.dump1090_log
+create table :h_schema.dump1090_log
    (
    dump1090_sitename    char(20)                       ,
    processing_start_ts  timestamp                      ,

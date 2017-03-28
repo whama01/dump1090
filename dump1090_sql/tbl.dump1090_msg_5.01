@@ -25,7 +25,7 @@
    Create table: dump1090_msg_5
 */
 
-create table dump1090_kafka.dump1090_msg_5
+create table :h_schema.dump1090_msg_5
    (
    dump1090_sitename    char(20)                       ,
    record_type          char(3)                        ,

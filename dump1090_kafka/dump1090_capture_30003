@@ -1,0 +1,96 @@
+#!/bin/bash
+#
+# ------------------------------------------------------------------------------
+#
+# Name:
+#   dump1090_capture_30003
+#
+# Description:
+#
+# History:
+#   1.0 03-Jan-2016 (mark.whalley@hpe.com)
+#       Created
+#
+# ------------------------------------------------------------------------------
+
+function STARTCAPTURE
+# ------------------------------------------------------------------------------
+# Capture the dump1090 data from port 30003 via nc
+# ------------------------------------------------------------------------------
+{
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Starting capture of dump1090 data - initiating"
+
+  nc 127.0.0.1 30003 > /tmp/dump1090_30003.dat &
+  h_dump1090_30003_pid=$!
+  echo $h_dump1090_30003_pid > /tmp/dump1090_30003_pid
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Starting capture of dump1090 data - completed"
+
+}
+
+
+
+function MOVEDUMP1090DATA
+# ------------------------------------------------------------------------------
+# Rename the live DUMP1090 Data file
+# ------------------------------------------------------------------------------
+{
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Copying current dump1090 file - initiating"
+
+  h_curr_date_time=`date +"%Y%m%d%H%M%S"`
+  cp /tmp/dump1090_30003.dat /projects/dump1090/data/capture_30003/dump1090_30003.$h_curr_date_time
+
+  > /tmp/dump1090_30003.dat
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Copying current dump1090 file - completed"
+
+}
+
+
+
+function COMPRESSDATAFILES
+# ------------------------------------------------------------------------------
+# Compress the DUMP data files
+# ------------------------------------------------------------------------------
+{
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Compressing dump1090 file - initiating"
+
+  gzip /projects/dump1090/data/capture_30003/dump1090_30003.$h_curr_date_time
+
+  h_now=`date +"%Y-%m-%d %H:%M:%S"`
+  printf "%s\n" "$h_now Compressing dump1090 file - completed"
+
+}
+
+
+
+
+# ------------------------------------------------------------------------------
+# Main program
+# ------------------------------------------------------------------------------
+
+h_now=`date +"%Y-%m-%d %H:%M:%S"`
+printf "%s\n" "$h_now Main program - initiating"
+
+MOVEDUMP1090DATA
+
+STARTCAPTURE
+
+COMPRESSDATAFILES
+
+h_now=`date +"%Y-%m-%d %H:%M:%S"`
+printf "%s\n" "$h_now Main program - completed"
+
+
+
+# ------------------------------------------------------------------------------
+# End of Script
+# ------------------------------------------------------------------------------

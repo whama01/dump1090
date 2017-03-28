@@ -1,0 +1,1 @@
+ /pi02/projects/dump1090/bin/dump1090_readpipe_writekafka.sh --sitename pennardpi30 --kafka_broker localhost --kafka_port 9092 --kafka_data_dir /pi02/projects/dump1090/data --dump1090_server localhost --dump1090_nc_port 30003

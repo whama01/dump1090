@@ -20,13 +20,16 @@
 #   1.0 14-Nov-2016 (mark.whalley@hpe.com)
 #       Created from post-it note specification
 #
+#   1.1 12-Mar-2017 (mark.whalley@hpe.com)
+#       Added MSG_7
+#
 #----------------------------------------------------------------------------
 
 
 #
 #----------------------------------------------------------------------------
 h_prog_name=`basename ${0}`
-h_prog_version=v1.0
+h_prog_version=v1.1
 #----------------------------------------------------------------------------
 #
 
@@ -227,7 +230,7 @@ INITIALIZE()
    h_prog_path=`pwd`
    h_pid=$$
 
-   export PATH=/usr/bin:/bin:/opt/kafka_2.11-0.9.0.1/bin:/pi01/projects/kafkacat_build/kafkacat
+   export PATH=/usr/bin:/bin:/opt/kafka/bin:/usr/local/bin
 
    tty 1>/dev/null 2>&1
 
@@ -267,6 +270,7 @@ INITIALIZE()
    h_msg_4_pid_file=${h_pid_dir}/${h_prog_name}".msg_4.pid"
    h_msg_5_pid_file=${h_pid_dir}/${h_prog_name}".msg_5.pid"
    h_msg_6_pid_file=${h_pid_dir}/${h_prog_name}".msg_6.pid"
+   h_msg_7_pid_file=${h_pid_dir}/${h_prog_name}".msg_7.pid"
    h_msg_8_pid_file=${h_pid_dir}/${h_prog_name}".msg_8.pid"
 
 
@@ -282,6 +286,7 @@ INITIALIZE()
    h_kafka_topic_dump1090_msg_4="dump1090_msg_4"
    h_kafka_topic_dump1090_msg_5="dump1090_msg_5"
    h_kafka_topic_dump1090_msg_6="dump1090_msg_6"
+   h_kafka_topic_dump1090_msg_7="dump1090_msg_7"
    h_kafka_topic_dump1090_msg_8="dump1090_msg_8"
 
 
@@ -299,6 +304,7 @@ INITIALIZE()
    h_file_dump1090_msg_4=${h_clv_kafka_data_dir}"/dump1090_msg_4.txt"
    h_file_dump1090_msg_5=${h_clv_kafka_data_dir}"/dump1090_msg_5.txt"
    h_file_dump1090_msg_6=${h_clv_kafka_data_dir}"/dump1090_msg_6.txt"
+   h_file_dump1090_msg_7=${h_clv_kafka_data_dir}"/dump1090_msg_7.txt"
    h_file_dump1090_msg_8=${h_clv_kafka_data_dir}"/dump1090_msg_8.txt"
 
    h_file_dump1090=${h_clv_kafka_data_dir}"/dump1090.txt"
@@ -612,6 +618,8 @@ ISAPPLICATIONRUNNING()
 
    CHECKBACKGROUNDKAFKACATPROCESS "MSG_6" ${h_msg_6_pid_file} 
 
+   CHECKBACKGROUNDKAFKACATPROCESS "MSG_7" ${h_msg_7_pid_file} 
+
    CHECKBACKGROUNDKAFKACATPROCESS "MSG_8" ${h_msg_8_pid_file}
 
 
@@ -781,6 +789,7 @@ TOUCHTEXTFILES()
    touch $h_file_dump1090_msg_4
    touch $h_file_dump1090_msg_5
    touch $h_file_dump1090_msg_6
+   touch $h_file_dump1090_msg_7
    touch $h_file_dump1090_msg_8
 
    return 0
@@ -966,6 +975,23 @@ STARTKAFKACAT()
    MESSAGELOG "PIDs of the above KAFKACAT and TAIL processes: " ${h_msg_6_pid} "and" ${h_msg_6_tail_pid}
 
 
+
+#----------------------------------------------------------------------------
+# Kafka Topics: dump1090_msg_7
+#----------------------------------------------------------------------------
+   MESSAGELOG
+   MESSAGELOG "Starting kafkacat for topic: " ${h_kafka_topic_dump1090_msg_7}
+
+   tail -f ${h_file_dump1090_msg_7} | kafkacat -P -b ${h_clv_kafka_broker}:${h_clv_kafka_port} -t ${h_kafka_topic_dump1090_msg_7} -p 0 &
+   sleep 2
+   h_msg_7_pid=$!
+   h_msg_7_tail_pid=`ps -f --ppid ${h_pid} | grep "tail -f ${h_file_dump1090_msg_7}" | awk -F" " '{print $2}'`
+
+   printf "%s\t%s\t%s\n" ${h_pid} ${h_msg_7_pid} ${h_msg_7_tail_pid} > ${h_msg_7_pid_file}
+
+   MESSAGELOG "PIDs of the above KAFKACAT and TAIL processes: " ${h_msg_7_pid} "and" ${h_msg_7_tail_pid}
+
+
 #----------------------------------------------------------------------------
 # Kafka Topics: dump1090_msg_8
 #----------------------------------------------------------------------------
@@ -999,7 +1025,7 @@ READFROMNETCAT()
    MESSAGELOG
    MESSAGELOG
 
-   nc ${h_clv_dump1090_server} ${h_clv_dump1090_nc_port} | gawk -v h_awk_dump1090_sitename=${h_clv_dump1090_sitename} -v h_awk_kafka_port=${h_clv_kafka_port} -v h_awk_file_dump1090_air=${h_file_dump1090_air} -v h_awk_file_dump1090_id=${h_file_dump1090_id} -v h_awk_file_dump1090_sta=${h_file_dump1090_sta} -v h_awk_file_dump1090_msg_1=${h_file_dump1090_msg_1} -v h_awk_file_dump1090_msg_2=${h_file_dump1090_msg_2} -v h_awk_file_dump1090_msg_3=${h_file_dump1090_msg_3} -v h_awk_file_dump1090_msg_4=${h_file_dump1090_msg_4} -v h_awk_file_dump1090_msg_5=${h_file_dump1090_msg_5} -v h_awk_file_dump1090_msg_6=${h_file_dump1090_msg_6} -v h_awk_file_dump1090_msg_8=${h_file_dump1090_msg_8} '{
+   nc ${h_clv_dump1090_server} ${h_clv_dump1090_nc_port} | gawk -v h_awk_dump1090_sitename=${h_clv_dump1090_sitename} -v h_awk_kafka_port=${h_clv_kafka_port} -v h_awk_file_dump1090_air=${h_file_dump1090_air} -v h_awk_file_dump1090_id=${h_file_dump1090_id} -v h_awk_file_dump1090_sta=${h_file_dump1090_sta} -v h_awk_file_dump1090_msg_1=${h_file_dump1090_msg_1} -v h_awk_file_dump1090_msg_2=${h_file_dump1090_msg_2} -v h_awk_file_dump1090_msg_3=${h_file_dump1090_msg_3} -v h_awk_file_dump1090_msg_4=${h_file_dump1090_msg_4} -v h_awk_file_dump1090_msg_5=${h_file_dump1090_msg_5} -v h_awk_file_dump1090_msg_6=${h_file_dump1090_msg_6} -v h_awk_file_dump1090_msg_7=${h_file_dump1090_msg_7} -v h_awk_file_dump1090_msg_8=${h_file_dump1090_msg_8} '{
    
    h_input_line=$0
 
@@ -1011,6 +1037,14 @@ READFROMNETCAT()
                {
               printf ( h_awk_dump1090_sitename","ha_input_line[1]","ha_input_line[2]","ha_input_line[3]","ha_input_line[4]","ha_input_line[5]","ha_input_line[6]","ha_input_line[7]" "ha_input_line[8]","ha_input_line[9]" "ha_input_line[10]","ha_input_line[22] "\n" )      >> h_awk_file_dump1090_msg_8
               close (h_awk_file_dump1090_msg_8)
+              next
+               }
+
+    h_awk_index = index ( h_input_line, "MSG,7" )
+            if ( h_awk_index != 0 )
+               {
+              printf ( h_awk_dump1090_sitename","ha_input_line[1]","ha_input_line[2]","ha_input_line[3]","ha_input_line[4]","ha_input_line[5]","ha_input_line[6]","ha_input_line[7]" "ha_input_line[8]","ha_input_line[9]" "ha_input_line[10]","ha_input_line[12]","ha_input_line[22] "\n" )      >> h_awk_file_dump1090_msg_7
+              close (h_awk_file_dump1090_msg_7)
               next
                }
 

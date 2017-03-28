@@ -7,4 +7,5 @@ kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --par
 kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic dump1090_msg_4
 kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic dump1090_msg_5
 kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic dump1090_msg_6
+kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic dump1090_msg_7
 kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic dump1090_msg_8

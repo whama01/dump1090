@@ -1,0 +1,28 @@
+/*
+  Script Name....: schema.dump1090_kafka.00
+
+  Purpose........: Creates the following schema:
+
+                      dump1090_kafka
+
+  Author.........: MA Whalley
+
+  Date written...: 31-Oct-2016
+
+  Amendment History
+  -----------------
+
+*/
+
+
+/*
+   Create schema: dump1090_kafka
+*/
+
+create schema :h_schema
+\p\g
+
+
+/*
+  End of Script
+*/

@@ -1,21 +1,31 @@
 h_log="./build_dump1090.log.$$"
 
-vsql -f     schema.dump1090_kafka.00 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f schema.dump1090.00 >> $h_log
 
-vsql -f     tbl.dump1090_air.01 >> $h_log
-vsql -f     tbl.dump1090_id.01 >> $h_log
-vsql -f     tbl.dump1090_sta.01 >> $h_log
-vsql -f     tbl.dump1090_msg_1.01 >> $h_log
-vsql -f     tbl.dump1090_msg_2.01 >> $h_log
-vsql -f     tbl.dump1090_msg_3.01 >> $h_log
-vsql -f     tbl.dump1090_msg_4.01 >> $h_log
-vsql -f     tbl.dump1090_msg_5.01 >> $h_log
-vsql -f     tbl.dump1090_msg_6.01 >> $h_log
-vsql -f     tbl.dump1090_msg_8.01 >> $h_log
-
-vsql -f     tbl.dump1090_log.01 >> $h_log
-vsql -f     vw.vw_dump1090_log.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_air.01   >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_id.01    >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_1.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_2.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_3.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_4.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_5.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_6.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_7.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_msg_8.01 >> $h_log
+vsql -v h_schema="dump1090_kafka" -f tbl.dump1090_sta.01   >> $h_log
 
 
+vsql -v h_schema="dump1090_batch" -f schema.dump1090.00 >> $h_log
 
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_air.01   >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_id.01    >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_1.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_2.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_3.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_4.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_5.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_6.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_7.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_msg_8.01 >> $h_log
+vsql -v h_schema="dump1090_batch" -f tbl.dump1090_sta.01   >> $h_log
 
