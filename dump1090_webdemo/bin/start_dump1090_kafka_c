@@ -1,1 +1,0 @@
-kafkacat -C -b vortex01:6667 -t adsb_dump1090
